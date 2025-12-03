@@ -8,45 +8,68 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Load QR Code Generator Library (DIUBAH ke qrcodejs untuk konstruktor yang stabil di browser) -->
+    <!-- Load QR Code Generator Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Load Firebase/Firestore for environment compatibility -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+      } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+      // Global variables provided by the environment
+      const appId =
+        typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+      const firebaseConfig =
+        typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : null;
+      const initialAuthToken =
+        typeof __initial_auth_token !== "undefined"
+          ? __initial_auth_token
+          : null;
+
+      let db, auth;
+
+      // Function to initialize Firebase and authenticate
+      async function initializeFirebase() {
+        if (!firebaseConfig) {
+          console.error("Firebase configuration is missing.");
+          return;
+        }
+
+        try {
+          const app = initializeApp(firebaseConfig);
+          db = getFirestore(app);
+          auth = getAuth(app);
+
+          // Set logging level for debugging
+          setLogLevel("Debug");
+
+          if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+            await signInAnonymously(auth);
+          }
+          console.log("Firebase Authentication successful.");
+        } catch (error) {
+          console.error(
+            "Error during Firebase initialization or authentication:",
+            error
+          );
+        }
+      }
+
+      // Initialize when the script loads
+      initializeFirebase();
+    </script>
     <style>
-      /* Custom styles for the responsive single-card slider effect (Global) */
-      #qrcode-container {
-        /* Menggunakan Flexbox untuk slider di semua ukuran layar */
-        display: flex;
-        overflow-x: scroll;
-        /* Memastikan snapping ke tengah setiap kartu saat digulir */
-        scroll-snap-type: x mandatory;
-        padding: 0 5%; /* Padding horizontal agar kartu berikutnya mengintip */
-        padding-bottom: 1rem; /* Space for scrollbar/shadow */
-        -webkit-overflow-scrolling: touch; /* Smoother scrolling on iOS */
-
-        /* Menyembunyikan scrollbar agar tampilan lebih bersih */
-        scrollbar-width: none; /* Firefox */
-        -ms-overflow-style: none; /* IE and Edge */
-        margin-left: -5%; /* Mengimbangi padding container agar konten terlihat penuh */
-        margin-right: -5%;
-        width: 110%; /* Memperluas container untuk menampung padding */
-      }
-
-      #qrcode-container::-webkit-scrollbar {
-        display: none; /* Chrome, Safari, Opera */
-      }
-
-      .qrcode-card {
-        /* Mengambil 90% lebar untuk menampilkan satu kartu terpusat */
-        min-width: 90%;
-        margin-right: 2.5%; /* Margin antara kartu (5% total per card) */
-        margin-left: 2.5%;
-
-        /* Snap ke tengah viewport */
-        scroll-snap-align: center;
-        flex-shrink: 0; /* Mencegah kartu menyusut */
-        box-sizing: border-box; /* Memasukkan padding dan border dalam lebar total */
-      }
-
-      /* Menghapus semua media query layout grid */
+      /* Menghapus semua custom CSS untuk slider, scroll-snap, dan overflow */
+      /* Kontainer sekarang hanya berisi satu kartu terpusat */
     </style>
   </head>
   <body class="bg-gray-50 min-h-screen font-sans">
@@ -87,25 +110,74 @@
 
       <!-- Output Section (QR Code Container) -->
       <!-- Bagian ini disembunyikan secara default menggunakan class 'hidden' -->
-      <div
-        id="output-section"
-        class="mt-10 hidden p-6 md:p-8 rounded-xl shadow-2xl mb-10 max-w-2xl mx-auto"
-      >
+      <div id="output-section" class="mt-10 hidden max-w-2xl mx-auto">
         <h2 class="text-3xl font-bold text-gray-800 mb-6">Hasil QR Code</h2>
 
-        <!-- Information message for slider (Dihapus sm:hidden karena slider sekarang universal) -->
+        <!-- Information message for slider (Akan disembunyikan jika hanya 1 resi) -->
         <div
           id="info-slider"
-          class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg mb-6"
+          class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg mb-6 hidden"
           role="alert"
         >
-          <p class="font-bold">Mode Slider Aktif</p>
-          <p>Geser ke kiri dan kanan untuk melihat semua kode QR.</p>
+          <p class="font-bold">Mode Navigasi Aktif</p>
+          <p>Gunakan tombol panah untuk melihat kode QR berikutnya.</p>
         </div>
 
-        <!-- The container for the QR code cards -->
-        <div id="qrcode-container">
-          <!-- QR Code cards will be injected here by JavaScript -->
+        <!-- Wrapper for the single card and navigation buttons -->
+        <div
+          id="navigation-wrapper"
+          class="relative py-4 flex items-center justify-center"
+        >
+          <!-- Navigation Buttons (Kiri/Previous) - Default hidden -->
+          <button
+            id="prev-btn"
+            disabled
+            class="absolute left-4 z-10 p-3 bg-white rounded-full shadow-xl hover:bg-gray-100 transition duration-150 top-1/2 -translate-y-1/2 disabled:opacity-30 disabled:cursor-not-allowed hidden /* Mengganti -translate-x-1/2 dengan left-4 dan mengatur posisi desktop */ md:left-1/4 xl:left-1/4"
+          >
+            <!-- Icon Previous -->
+            <svg
+              class="w-6 h-6 text-indigo-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="3"
+                d="M15 19l-7-7 7-7"
+              ></path>
+            </svg>
+          </button>
+
+          <!-- The single card container. Hanya akan menampung satu kartu. -->
+          <div id="single-card-wrapper" class="w-full mx-auto">
+            <!-- Card content will be dynamically injected here -->
+          </div>
+
+          <!-- Navigation Buttons (Kanan/Next) - Default hidden -->
+          <button
+            id="next-btn"
+            disabled
+            class="absolute right-4 z-10 p-3 bg-white rounded-full shadow-xl hover:bg-gray-100 transition duration-150 top-1/2 -translate-y-1/2 disabled:opacity-30 disabled:cursor-not-allowed hidden /* Mengganti translate-x-1/2 dengan right-4 dan mengatur posisi desktop */ md:right-1/4 xl:right-1/4"
+          >
+            <!-- Icon Next -->
+            <svg
+              class="w-6 h-6 text-indigo-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="3"
+                d="M9 5l7 7-7 7"
+              ></path>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -114,10 +186,16 @@
       $(document).ready(function () {
         const $input = $("#resi-input");
         const $generateBtn = $("#generate-btn");
-        const $container = $("#qrcode-container");
+        const $wrapper = $("#single-card-wrapper"); // Kontainer tunggal untuk kartu
         const $errorMsg = $("#error-message");
-        // Ambil referensi ke seluruh bagian output
         const $outputSection = $("#output-section");
+        const $prevBtn = $("#prev-btn");
+        const $nextBtn = $("#next-btn");
+        const $infoSlider = $("#info-slider");
+
+        let resiNumbers = [];
+        let currentIndex = 0;
+        const qrcodeId = "qrcode-canvas"; // ID tetap untuk canvas QR code
 
         /**
          * Function to display a non-alert message.
@@ -133,93 +211,146 @@
         }
 
         /**
-         * Function to generate and display QR codes from the input.
+         * Updates the state (disabled/enabled) and visibility of the Prev/Next buttons.
+         */
+        function updateNavButtons() {
+          const totalCards = resiNumbers.length;
+
+          if (totalCards <= 1) {
+            // Sembunyikan tombol dan pesan info jika 0 atau 1 resi
+            $prevBtn.addClass("hidden");
+            $nextBtn.addClass("hidden");
+            $infoSlider.addClass("hidden");
+            return;
+          }
+
+          // Tampilkan tombol dan pesan info
+          $prevBtn.removeClass("hidden");
+          $nextBtn.removeClass("hidden");
+          $infoSlider.removeClass("hidden");
+
+          // Update disabled state berdasarkan currentIndex
+          $prevBtn.prop("disabled", currentIndex === 0);
+          $nextBtn.prop("disabled", currentIndex === totalCards - 1);
+        }
+
+        /**
+         * Function to render the QR code for the current index into the single card structure.
+         * @param {number} index The index of the resi number to display.
+         */
+        function renderCard(index) {
+          const resi = resiNumbers[index];
+          if (!resi) return;
+
+          // 1. Injeksi struktur kartu jika belum ada
+          if (
+            $wrapper.children().length === 0 ||
+            $wrapper.find("#dynamic-card").length === 0
+          ) {
+            $wrapper.html(`
+                        <div id="dynamic-card" class="bg-white p-6 rounded-xl shadow-xl transition duration-300">
+                            <h3 id="card-title" class="text-lg font-bold text-indigo-600 mb-4 truncate"></h3>
+                            <div id="${qrcodeId}-container" class="flex justify-center p-3 bg-gray-50 rounded-lg">
+                                <div id="${qrcodeId}"></div>
+                            </div>
+                            <p id="card-index" class="text-sm text-gray-500 mt-4 text-center"></p>
+                            <p class="text-xs text-gray-400 mt-2 text-center">Data: <span id="card-data"></span></p>
+                        </div>
+                    `);
+          }
+
+          // 2. Update konten dengan data resi baru
+          $("#card-title").text(`Resi: ${resi}`).attr("title", resi);
+          $("#card-data").text(resi);
+          $("#card-index").text(`Kode ${index + 1} dari ${resiNumbers.length}`);
+
+          // 3. Hapus QR code sebelumnya dan buat ulang
+          $(`#${qrcodeId}`).empty();
+          try {
+            new QRCode(document.getElementById(qrcodeId), {
+              text: resi,
+              width: 180,
+              height: 180,
+              colorDark: "#1f2937",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.H,
+            });
+          } catch (e) {
+            console.error("Error generating QR code:", resi, e);
+            $(`#${qrcodeId}`).html(
+              '<p class="text-red-500">Gagal membuat QR Code.</p>'
+            );
+          }
+
+          // 4. Perbarui status tombol
+          updateNavButtons();
+        }
+
+        /**
+         * Mengubah currentIndex dan memanggil renderCard.
+         * @param {'prev' | 'next'} direction
+         */
+        function navigateSlider(direction) {
+          const totalCards = resiNumbers.length;
+          if (totalCards <= 1) return;
+
+          let newIndex = currentIndex;
+          if (direction === "next") {
+            newIndex = Math.min(currentIndex + 1, totalCards - 1);
+          } else {
+            // 'prev'
+            newIndex = Math.max(currentIndex - 1, 0);
+          }
+
+          // Hanya render ulang jika index berubah
+          if (newIndex !== currentIndex) {
+            currentIndex = newIndex;
+            renderCard(currentIndex);
+          }
+        }
+
+        /**
+         * Function utama untuk memproses input dan memulai rendering.
          */
         function generateQRCodes() {
           // 1. Get and clean the input
           const rawInput = $input.val().trim();
 
-          // Tampilkan bagian output segera setelah tombol diklik
-          $outputSection.removeClass("hidden");
-
-          if (rawInput === "") {
-            showMessage("Mohon masukkan setidaknya satu nomor resi.", true);
-            // Tampilkan placeholder jika input kosong
-            $container.html(
-              '<div class="qrcode-card bg-white p-6 rounded-xl shadow-md border border-gray-200 text-center flex flex-col items-center justify-center h-64"><p class="text-gray-500 italic">Masukkan nomor resi terlebih dahulu.</p></div>'
-            );
-            return;
-          }
-          showMessage("", false); // Clear error message
-
-          // Split input by newline or comma, filter out empty strings
-          const resiNumbers = rawInput
+          // 2. Proses resi numbers
+          resiNumbers = rawInput
             .split(/[\n,]+/)
             .map((resi) => resi.trim())
             .filter((resi) => resi.length > 0)
-            .slice(0, 1000); // Limit to 20 for performance
+            .slice(0, 1000); // Limit to 1000 for performance
+
+          $wrapper.empty(); // Hapus konten sebelumnya
 
           if (resiNumbers.length === 0) {
             showMessage(
-              "Input yang dimasukkan tidak valid. Pastikan nomor resi dipisahkan dengan benar.",
+              "Mohon masukkan setidaknya satu nomor resi yang valid.",
               true
             );
-            $container.html(
-              '<div class="qrcode-card bg-white p-6 rounded-xl shadow-md border border-gray-200 text-center flex flex-col items-center justify-center h-64"><p class="text-gray-500 italic">Masukkan nomor resi terlebih dahulu.</p></div>'
-            );
+            // Sembunyikan seluruh bagian hasil QR Code jika terjadi error
+            $outputSection.addClass("hidden");
+            updateNavButtons(); // Pastikan tombol navigasi juga disembunyikan
             return;
           }
 
-          // 2. Clear previous results
-          $container.empty();
+          // 3. Hanya tampilkan bagian output jika input valid
+          $outputSection.removeClass("hidden");
+          showMessage("", false); // Hapus pesan error sebelumnya
 
-          // 3. Generate QR codes for each resi
-          resiNumbers.forEach((resi, index) => {
-            const cardId = `card-${index}`;
-            const qrcodeId = `qrcode-${index}`;
-
-            // a. Create the card structure (Modern Card Design)
-            const $card = $(`
-                        <div id="${cardId}" class="qrcode-card bg-white p-6 rounded-xl shadow-xl transition duration-300 hover:shadow-2xl">
-                            <h3 class="text-lg font-bold text-indigo-600 mb-4 truncate" title="${resi}">
-                                <svg class="w-5 h-5 inline mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10h16V7a2 2 0 00-2-2H6a2 2 0 00-2 2zM12 17v-4m-4 4h8m0 0h2a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2h2"></path></svg>
-                                Resi: ${resi}
-                            </h3>
-                            <div id="${qrcodeId}" class="flex justify-center p-3 bg-gray-50 rounded-lg">
-                                <!-- QR Code Canvas will be inserted here -->
-                            </div>
-                            <p class="text-xs text-gray-400 mt-4 text-center">Data: ${resi}</p>
-                        </div>
-                    `);
-
-            $container.append($card);
-
-            // b. Generate the QR Code using the library
-            try {
-              // The QRCode library needs a native DOM element or its ID
-              new QRCode(document.getElementById(qrcodeId), {
-                text: resi,
-                width: 180,
-                height: 180,
-                colorDark: "#1f2937", // Gray-800
-                colorLight: "#ffffff",
-                // Menggunakan konstanta CorrectLevel.H dari library qrcodejs yang stabil
-                correctLevel: QRCode.CorrectLevel.H,
-              });
-            } catch (e) {
-              console.error("Error generating QR code for resi:", resi, e);
-              $(`#${qrcodeId}`).html(
-                '<p class="text-red-500">Gagal membuat QR Code.</p>'
-              );
-            }
-          });
-
-          // Scroll the container to the start (important for slider)
-          $container.scrollLeft(0);
+          // 4. Inisialisasi dan render kartu pertama
+          currentIndex = 0;
+          renderCard(currentIndex);
         }
 
         // Event listener for the button click
         $generateBtn.on("click", generateQRCodes);
+
+        // Event listeners for navigation
+        $prevBtn.on("click", () => navigateSlider("prev"));
+        $nextBtn.on("click", () => navigateSlider("next"));
 
         // Optional: Allow pressing Enter in the textarea to trigger generation
         $input.on("keypress", function (e) {
@@ -230,8 +361,8 @@
           }
         });
 
-        // Hapus panggilan awal agar bagian output tersembunyi saat dimuat
-        // generateQRCodes();
+        // Initial setup on load to hide buttons
+        updateNavButtons();
       });
     </script>
   </body>
