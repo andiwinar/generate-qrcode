@@ -197,6 +197,65 @@
         let currentIndex = 0;
         const qrcodeId = "qrcode-canvas"; // ID tetap untuk canvas QR code
 
+        // --- START: Implementasi Fitur Keamanan ---
+        /**
+         * Memeriksa apakah aplikasi dijalankan di lingkungan GitHub Pages.
+         * @returns {boolean} True jika domain mengandung 'github.io'.
+         */
+        function isRunningOnGitHubPages() {
+          const hostname = window.location.hostname;
+          // Memeriksa domain umum GitHub Pages
+          return hostname.includes("github.io");
+        }
+
+        /**
+         * Menerapkan tindakan keamanan (nonaktifkan klik kanan, Inspect Element, View Source).
+         */
+        function applySecurityMeasures() {
+          console.log("Fitur keamanan diaktifkan.");
+
+          // 1. Nonaktifkan Klik Kanan (Menu Konteks)
+          document.addEventListener("contextmenu", function (e) {
+            e.preventDefault();
+            // console.log("Klik kanan dinonaktifkan.");
+          });
+
+          // 2. Nonaktifkan Pintasan Keyboard (F12, Ctrl+Shift+I, Ctrl+U, dll.)
+          document.addEventListener("keydown", function (e) {
+            // F12 key
+            if (e.keyCode === 123 || e.which === 123) {
+              e.preventDefault();
+              // console.log("F12 (Inspect Element) dinonaktifkan.");
+              return;
+            }
+
+            // Pintasan Ctrl/Cmd (View Source, Inspect Element, Console)
+            if (e.ctrlKey || e.metaKey) {
+              // Ctrl for Windows/Linux, Cmd for macOS
+              const key = String.fromCharCode(e.which).toLowerCase();
+
+              // Ctrl+Shift+I atau Ctrl+I (Inspect Element)
+              if ((e.shiftKey && key === "i") || key === "i") {
+                e.preventDefault();
+                // console.log("Ctrl+Shift+I (Inspect Element) dinonaktifkan.");
+                return;
+              }
+
+              // Ctrl+U (View Source)
+              if (key === "u") {
+                e.preventDefault();
+                // console.log("Ctrl+U (View Source) dinonaktifkan.");
+                return;
+              }
+            }
+          });
+        }
+
+        if (isRunningOnGitHubPages()) {
+          applySecurityMeasures();
+        }
+        // --- END: Implementasi Fitur Keamanan ---
+
         /**
          * Function to display a non-alert message.
          * @param {string} message The message to display.
