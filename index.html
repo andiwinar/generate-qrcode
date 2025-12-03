@@ -10,7 +10,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Load QR Code Generator Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Load Firebase/Firestore for environment compatibility -->
+    <!-- Load Firebase/Firestore for environment compatibility (Minimal setup) -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
       import {
@@ -22,8 +22,6 @@
       import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
       // Global variables provided by the environment
-      const appId =
-        typeof __app_id !== "undefined" ? __app_id : "default-app-id";
       const firebaseConfig =
         typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
@@ -33,9 +31,7 @@
           ? __initial_auth_token
           : null;
 
-      let db, auth;
-
-      // Function to initialize Firebase and authenticate
+      // Function to initialize Firebase and authenticate (minimal setup for environment)
       async function initializeFirebase() {
         if (!firebaseConfig) {
           console.error("Firebase configuration is missing.");
@@ -44,8 +40,8 @@
 
         try {
           const app = initializeApp(firebaseConfig);
-          db = getFirestore(app);
-          auth = getAuth(app);
+          const auth = getAuth(app);
+          const db = getFirestore(app);
 
           // Set logging level for debugging
           setLogLevel("Debug");
@@ -55,7 +51,7 @@
           } else {
             await signInAnonymously(auth);
           }
-          console.log("Firebase Authentication successful.");
+          console.log("Firebase Authentication successful (minimal setup).");
         } catch (error) {
           console.error(
             "Error during Firebase initialization or authentication:",
@@ -64,272 +60,380 @@
         }
       }
 
-      // Initialize when the script loads
+      // Run initialization
       initializeFirebase();
     </script>
     <style>
-      /* Menghapus semua custom CSS untuk slider, scroll-snap, dan overflow */
-      /* Kontainer sekarang hanya berisi satu kartu terpusat */
+      /* Style untuk memastikan QR Code terlihat tajam dan ukurannya pas */
+      #qrcode-canvas canvas {
+        display: block; /* Menghilangkan margin bawah default pada canvas */
+      }
+
+      .instruction-icon {
+        animation: pulse-orange 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      }
+
+      @keyframes pulse-orange {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
     </style>
   </head>
-  <body class="bg-gray-50 min-h-screen font-sans">
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-      <header class="text-center mb-10">
-        <h1 class="text-4xl font-extrabold text-indigo-700">
-          QR Code Resi Generator
-        </h1>
-        <p class="text-lg text-gray-500 mt-2">
-          Masukkan beberapa nomor resi untuk membuat Kode QR secara instan.
-        </p>
-      </header>
+  <!-- Menggunakan font Inter secara default karena didukung Tailwind -->
+  <body class="bg-orange-600 min-h-screen font-sans antialiased">
+    <!-- BACKGROUND ORANGE -->
 
-      <!-- Input Section -->
-      <div
-        class="bg-white p-6 md:p-8 rounded-xl shadow-2xl mb-10 max-w-2xl mx-auto"
-      >
-        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Input Resi</h2>
-        <textarea
-          id="resi-input"
-          rows="6"
-          class="w-full p-4 border-2 border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-          placeholder="Masukkan nomor resi, pisahkan dengan baris baru (Enter) atau koma.&#10;Contoh:&#10;JKT123456789&#10;SBY987654321&#10;BDG112233445"
-        ></textarea>
-
-        <button
-          id="generate-btn"
-          class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50"
-        >
-          Generate QR Code
-        </button>
-
-        <div
-          id="error-message"
-          class="mt-4 text-red-500 font-medium hidden"
-        ></div>
-      </div>
-
-      <!-- Output Section (QR Code Container) -->
-      <!-- Bagian ini disembunyikan secara default menggunakan class 'hidden' -->
-      <div id="output-section" class="mt-10 hidden max-w-2xl mx-auto">
-        <h2 class="text-3xl font-bold text-gray-800 mb-6">Hasil QR Code</h2>
-
-        <!-- Information message for slider (Akan disembunyikan jika hanya 1 resi) -->
-        <div
-          id="info-slider"
-          class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg mb-6 hidden"
-          role="alert"
-        >
-          <p class="font-bold">Mode Navigasi Aktif</p>
-          <p>Gunakan tombol panah untuk melihat kode QR berikutnya.</p>
-        </div>
-
-        <!-- Wrapper for the single card and navigation buttons -->
-        <div
-          id="navigation-wrapper"
-          class="relative py-4 flex items-center justify-center"
-        >
-          <!-- Navigation Buttons (Kiri/Previous) - Default hidden -->
-          <button
-            id="prev-btn"
-            disabled
-            class="absolute left-4 z-10 p-3 bg-white rounded-full shadow-xl hover:bg-gray-100 transition duration-150 top-1/2 -translate-y-1/2 disabled:opacity-30 disabled:cursor-not-allowed hidden /* Mengganti -translate-x-1/2 dengan left-4 dan mengatur posisi desktop */ md:left-1/4 xl:left-1/4"
-          >
-            <!-- Icon Previous -->
-            <svg
-              class="w-6 h-6 text-indigo-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 relative">
+      <!-- START: HEADER MODIFIED FOR TWO COLUMNS -->
+      <header class="mb-10 p-0 sm:p-4 max-w-6xl mx-auto">
+        <!-- Menggunakan Flexbox untuk dua kolom di desktop, dan stack di mobile secara default -->
+        <div class="md:flex md:justify-between md:items-center">
+          <!-- Kolom 1: Konten Utama (Judul dan Deskripsi) - Rata Kiri di Desktop -->
+          <div class="text-left mb-6 md:mb-0">
+            <!-- PENYESUAIAN FONT SIZE RESPONSIVE -->
+            <h1
+              class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="3"
-                d="M15 19l-7-7 7-7"
-              ></path>
-            </svg>
-          </button>
-
-          <!-- The single card container. Hanya akan menampung satu kartu. -->
-          <div id="single-card-wrapper" class="w-full mx-auto">
-            <!-- Card content will be dynamically injected here -->
+              QR Code Resi Generator
+            </h1>
+            <p class="text-base sm:text-lg text-orange-100 mt-2">
+              Masukkan beberapa nomor resi untuk membuat Kode QR secara instan.
+            </p>
           </div>
 
-          <!-- Navigation Buttons (Kanan/Next) - Default hidden -->
-          <button
-            id="next-btn"
-            disabled
-            class="absolute right-4 z-10 p-3 bg-white rounded-full shadow-xl hover:bg-gray-100 transition duration-150 top-1/2 -translate-y-1/2 disabled:opacity-30 disabled:cursor-not-allowed hidden /* Mengganti translate-x-1/2 dengan right-4 dan mengatur posisi desktop */ md:right-1/4 xl:right-1/4"
-          >
-            <!-- Icon Next -->
-            <svg
-              class="w-6 h-6 text-indigo-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <!-- Kolom 2: Identitas "andiwinar" - Rata Kanan di Desktop -->
+          <div class="text-right flex justify-end items-center">
+            <div
+              class="p-3 border-2 border-orange-400 bg-orange-700/50 backdrop-blur-sm rounded-xl shadow-xl transition hover:bg-orange-700/70"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="3"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
+              <a
+                href="#"
+                class="text-xl sm:text-2xl lg:text-3xl font-mono tracking-wider text-white hover:text-orange-300 transition duration-300 font-bold"
+              >
+                andiwinar
+              </a>
+              <p class="text-xs text-orange-200 mt-1 font-medium">Developer</p>
+            </div>
+          </div>
+        </div>
+      </header>
+      <!-- END: HEADER MODIFIED FOR TWO COLUMNS -->
+
+      <!-- START: Layout Wrapper for Desktop (lg:flex) -->
+      <div class="max-w-6xl mx-auto lg:flex lg:space-x-8 lg:items-start">
+        <!-- Input Section (Left side on desktop) -->
+        <div
+          id="input-section"
+          class="bg-white p-6 md:p-8 rounded-xl shadow-2xl mb-10 w-full lg:w-1/2"
+        >
+          <h2 class="text-2xl font-semibold text-gray-800 mb-4">Input Resi</h2>
+          <textarea
+            id="resi-input"
+            rows="10"
+            class="w-full p-4 border-2 border-orange-300 rounded-lg focus:ring-orange-500 focus:border-orange-500 transition duration-150 text-gray-700 placeholder-gray-400"
+            placeholder="Masukkan nomor resi, pisahkan dengan baris baru (Enter) atau koma.&#10;Contoh:&#10;JKT123456789&#10;SBY987654321&#10;BDG112233445"
+          ></textarea>
+
+          <!-- BUTTON WARNA ORANGE SHOPEE -->
+          <button
+            id="generate-btn"
+            class="mt-4 w-full bg-orange-700 hover:bg-orange-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-orange-500 focus:ring-opacity-50"
+          >
+            Generate QR Code
+          </button>
+
+          <!-- PESAN ERROR INLINE DIHILANGKAN, DIGANTI MODAL -->
+        </div>
+
+        <!-- Output Section (Right side on desktop) -->
+        <div id="output-section" class="mt-10 lg:mt-0 w-full lg:w-1/2">
+          <!-- Modifikasi Title: Tambahkan ID dan ubah teks default ke Instruksi -->
+          <h2
+            id="output-title-h2"
+            class="text-3xl font-bold text-white mb-6 text-center"
+          >
+            Instruksi
+          </h2>
+
+          <!-- Wrapper for the single card and navigation buttons -->
+          <div
+            id="navigation-wrapper"
+            class="relative py-0 flex items-center justify-center min-h-[300px]"
+          >
+            <!-- Navigation Buttons (Sekarang selalu ada di DOM, tapi disembunyikan/dinonaktifkan jika perlu) -->
+            <button
+              id="prev-btn"
+              disabled
+              class="nav-button absolute left-0 z-10 p-3 bg-white rounded-full shadow-xl transition duration-150 top-1/2 -translate-y-1/2 disabled:opacity-30 disabled:cursor-not-allowed hidden lg:left-[-1.5rem]"
+            >
+              <!-- Icon Previous -->
+              <svg
+                class="w-6 h-6 text-orange-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="3"
+                  d="M15 19l-7-7 7-7"
+                ></path>
+              </svg>
+            </button>
+
+            <!-- The single card container. -->
+            <div id="single-card-wrapper" class="w-full mx-auto">
+              <!-- Default Content (Instructional Card) -->
+              <div
+                id="default-instruction-card"
+                class="bg-white p-8 rounded-xl shadow-xl transition duration-300 text-center flex flex-col items-center justify-center h-full"
+              >
+                <!-- Icon Ilustrasi (Ambil dari Lucide-react/SVG, di sini kita gunakan SVG sederhana) -->
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-16 h-16 text-orange-500 mb-4 instruction-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="8" y2="3"></line>
+                  <line x1="16" y1="21" x2="16" y2="3"></line>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M6 6h.01"></path>
+                  <path d="M18 18h.01"></path>
+                </svg>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">
+                  Siap untuk Membuat QR Code?
+                </h3>
+                <p class="text-gray-600 mb-4">
+                  Bagian ini adalah tempat hasil kode QR Anda akan ditampilkan.
+                </p>
+                <ol
+                  class="text-left text-sm text-gray-700 space-y-2 w-full max-w-[500px] mx-auto"
+                >
+                  <li class="flex items-center">
+                    <span
+                      class="bg-orange-100 text-orange-700 w-5 h-5 flex items-center justify-center rounded-full mr-2 font-semibold"
+                      >1</span
+                    >
+                    Masukkan resi di kolom kiri.
+                  </li>
+                  <li class="flex items-center">
+                    <span
+                      class="bg-orange-100 text-orange-700 w-5 h-5 flex items-center justify-center rounded-full mr-2 font-semibold"
+                      >2</span
+                    >
+                    Tekan tombol
+                    <span class="font-semibold text-orange-700 ml-1"
+                      >Generate QR Code</span
+                    >.
+                  </li>
+                  <li class="flex items-center">
+                    <span
+                      class="bg-orange-100 text-orange-700 w-5 h-5 flex items-center justify-center rounded-full mr-2 font-semibold"
+                      >3</span
+                    >
+                    Kode QR siap discan!
+                  </li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-4">
+                  Coba masukkan 2-3 resi untuk melihat fitur navigasi.
+                </p>
+              </div>
+            </div>
+
+            <!-- Navigation Buttons (Sekarang selalu ada di DOM) -->
+            <button
+              id="next-btn"
+              disabled
+              class="nav-button absolute right-0 z-10 p-3 bg-white rounded-full shadow-xl transition duration-150 top-1/2 -translate-y-1/2 disabled:opacity-30 disabled:cursor-not-allowed hidden lg:right-[-1.5rem]"
+            >
+              <!-- Icon Next -->
+              <svg
+                class="w-6 h-6 text-orange-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="3"
+                  d="M9 5l7 7-7 7"
+                ></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- END: Layout Wrapper for Desktop (lg:flex) -->
+    </div>
+
+    <!-- START: CUSTOM ERROR MODAL (Popup) -->
+    <div
+      id="error-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex justify-center items-center hidden transition-opacity duration-300"
+    >
+      <div
+        class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl max-w-sm w-11/12 transform transition-transform duration-300 scale-95"
+      >
+        <div class="flex flex-col items-center">
+          <!-- Ikon Peringatan -->
+          <svg
+            class="w-12 h-12 text-red-500 mb-4 animate-bounce"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            ></path>
+          </svg>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Input Kosong!</h3>
+          <p id="modal-error-text" class="text-center text-gray-600 mb-6">
+            Mohon masukkan setidaknya satu nomor resi yang valid pada kolom
+            input.
+          </p>
+          <button
+            id="close-modal-btn"
+            class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 rounded-lg transition duration-200 shadow-md"
+          >
+            Tutup
           </button>
         </div>
       </div>
     </div>
+    <!-- END: CUSTOM ERROR MODAL (Popup) -->
 
     <script>
       $(document).ready(function () {
+        // --- Variabel Global dan UI Cache ---
         const $input = $("#resi-input");
         const $generateBtn = $("#generate-btn");
-        const $wrapper = $("#single-card-wrapper"); // Kontainer tunggal untuk kartu
-        const $errorMsg = $("#error-message");
-        const $outputSection = $("#output-section");
+        const $wrapper = $("#single-card-wrapper");
+        const $outputTitle = $("#output-title-h2");
         const $prevBtn = $("#prev-btn");
         const $nextBtn = $("#next-btn");
-        const $infoSlider = $("#info-slider");
+        const $defaultCard = $("#default-instruction-card");
+
+        // Modal elements
+        const $errorModal = $("#error-modal");
+        const $closeModalBtn = $("#close-modal-btn");
+        // const $modalErrorText = $("#modal-error-text"); // Jika ingin teks dinamis
 
         let resiNumbers = [];
         let currentIndex = 0;
-        const qrcodeId = "qrcode-canvas"; // ID tetap untuk canvas QR code
+        const qrcodeId = "qrcode-canvas";
 
-        // --- START: Implementasi Fitur Keamanan ---
-        /**
-         * Memeriksa apakah aplikasi dijalankan di lingkungan GitHub Pages.
-         * @returns {boolean} True jika domain mengandung 'github.io'.
-         */
-        function isRunningOnGitHubPages() {
-          const hostname = window.location.hostname;
-          // Memeriksa domain umum GitHub Pages
-          return hostname.includes("github.io");
+        // Fungsi baru untuk menampilkan modal error
+        function showModalError(message) {
+          // Set teks pesan (jika dinamis, gunakan $modalErrorText.text(message))
+          // Saat ini teks sudah statis di HTML, jadi hanya perlu menampilkan/menyembunyikan
+          $errorModal
+            .removeClass("hidden")
+            .css("opacity", 0)
+            .animate({ opacity: 1 }, 200);
+          // Tambahkan efek zoom in pada konten modal
+          $errorModal.children().removeClass("scale-95").addClass("scale-100");
         }
 
-        /**
-         * Menerapkan tindakan keamanan (nonaktifkan klik kanan, Inspect Element, View Source).
-         */
-        function applySecurityMeasures() {
-          console.log("Fitur keamanan diaktifkan.");
-
-          // 1. Nonaktifkan Klik Kanan (Menu Konteks)
-          document.addEventListener("contextmenu", function (e) {
-            e.preventDefault();
-            // console.log("Klik kanan dinonaktifkan.");
-          });
-
-          // 2. Nonaktifkan Pintasan Keyboard (F12, Ctrl+Shift+I, Ctrl+U, dll.)
-          document.addEventListener("keydown", function (e) {
-            // F12 key
-            if (e.keyCode === 123 || e.which === 123) {
-              e.preventDefault();
-              // console.log("F12 (Inspect Element) dinonaktifkan.");
-              return;
-            }
-
-            // Pintasan Ctrl/Cmd (View Source, Inspect Element, Console)
-            if (e.ctrlKey || e.metaKey) {
-              // Ctrl for Windows/Linux, Cmd for macOS
-              const key = String.fromCharCode(e.which).toLowerCase();
-
-              // Ctrl+Shift+I atau Ctrl+I (Inspect Element)
-              if ((e.shiftKey && key === "i") || key === "i") {
-                e.preventDefault();
-                // console.log("Ctrl+Shift+I (Inspect Element) dinonaktifkan.");
-                return;
-              }
-
-              // Ctrl+U (View Source)
-              if (key === "u") {
-                e.preventDefault();
-                // console.log("Ctrl+U (View Source) dinonaktifkan.");
-                return;
-              }
-            }
+        // Fungsi untuk menyembunyikan modal
+        function hideModalError() {
+          $errorModal.animate({ opacity: 0 }, 200, function () {
+            $(this).addClass("hidden");
+            // Kembalikan ke scale 95 untuk efek transisi masuk berikutnya
+            $(this).children().removeClass("scale-100").addClass("scale-95");
           });
         }
 
-        if (isRunningOnGitHubPages()) {
-          applySecurityMeasures();
-        }
-        // --- END: Implementasi Fitur Keamanan ---
+        // Event listener untuk tombol Tutup modal
+        $closeModalBtn.on("click", hideModalError);
 
-        /**
-         * Function to display a non-alert message.
-         * @param {string} message The message to display.
-         * @param {boolean} isError If true, displays as an error. Otherwise, hides the error box.
-         */
-        function showMessage(message, isError) {
-          if (isError) {
-            $errorMsg.text(message).removeClass("hidden");
+        // Event listener untuk klik di luar area modal
+        $errorModal.on("click", function (e) {
+          if (e.target.id === "error-modal") {
+            hideModalError();
+          }
+        });
+
+        // Fungsi untuk mengupdate judul
+        function updateOutputTitle(isGenerating) {
+          if (isGenerating) {
+            $outputTitle.text("Hasil QR Code");
           } else {
-            $errorMsg.addClass("hidden").text("");
+            $outputTitle.text("Instruksi");
           }
         }
 
-        /**
-         * Updates the state (disabled/enabled) and visibility of the Prev/Next buttons.
-         */
         function updateNavButtons() {
           const totalCards = resiNumbers.length;
 
           if (totalCards <= 1) {
-            // Sembunyikan tombol dan pesan info jika 0 atau 1 resi
             $prevBtn.addClass("hidden");
             $nextBtn.addClass("hidden");
-            $infoSlider.addClass("hidden");
             return;
           }
 
-          // Tampilkan tombol dan pesan info
           $prevBtn.removeClass("hidden");
           $nextBtn.removeClass("hidden");
-          $infoSlider.removeClass("hidden");
 
-          // Update disabled state berdasarkan currentIndex
           $prevBtn.prop("disabled", currentIndex === 0);
           $nextBtn.prop("disabled", currentIndex === totalCards - 1);
         }
 
-        /**
-         * Function to render the QR code for the current index into the single card structure.
-         * @param {number} index The index of the resi number to display.
-         */
         function renderCard(index) {
           const resi = resiNumbers[index];
           if (!resi) return;
 
-          // 1. Injeksi struktur kartu jika belum ada
+          // Hapus card default jika ada
+          $defaultCard.remove();
+
+          // Memastikan hanya ada satu card kontainer dinamis di wrapper
           if (
             $wrapper.children().length === 0 ||
             $wrapper.find("#dynamic-card").length === 0
           ) {
             $wrapper.html(`
-                        <div id="dynamic-card" class="bg-white p-6 rounded-xl shadow-xl transition duration-300">
-                            <h3 id="card-title" class="text-lg font-bold text-indigo-600 mb-4 truncate"></h3>
-                            <div id="${qrcodeId}-container" class="flex justify-center p-3 bg-gray-50 rounded-lg">
-                                <div id="${qrcodeId}"></div>
-                            </div>
-                            <p id="card-index" class="text-sm text-gray-500 mt-4 text-center"></p>
-                            <p class="text-xs text-gray-400 mt-2 text-center">Data: <span id="card-data"></span></p>
-                        </div>
-                    `);
+                    <!-- Card BG Putih Dipertahankan -->
+                    <div id="dynamic-card" class="bg-white p-6 rounded-xl shadow-xl transition duration-300 transform scale-100 hover:shadow-2xl">
+                      <!-- Judul Card Warna Disesuaikan ke Orange -->
+                      <h3 id="card-title" class="text-xl font-bold text-orange-700 mb-4 truncate text-center"></h3>
+                      <div id="${qrcodeId}-container" class="flex justify-center p-3 bg-gray-50 rounded-lg">
+                        <div id="${qrcodeId}" class="p-1 border border-gray-200"></div>
+                      </div>
+                      <p id="card-index" class="text-sm font-semibold text-gray-500 mt-4 text-center"></p>
+                      <p class="text-xs text-gray-400 mt-1 text-center">Data: <span id="card-data" class="font-mono text-gray-600"></span></p>
+                    </div>
+                `);
           }
 
-          // 2. Update konten dengan data resi baru
+          // Perbarui konten card
           $("#card-title").text(`Resi: ${resi}`).attr("title", resi);
           $("#card-data").text(resi);
           $("#card-index").text(`Kode ${index + 1} dari ${resiNumbers.length}`);
 
-          // 3. Hapus QR code sebelumnya dan buat ulang
           $(`#${qrcodeId}`).empty();
           try {
             new QRCode(document.getElementById(qrcodeId), {
               text: resi,
-              width: 180,
-              height: 180,
+              width: 200, // Ukuran QR code sedikit lebih besar
+              height: 200, // Ukuran QR code sedikit lebih besar
               colorDark: "#1f2937",
               colorLight: "#ffffff",
               correctLevel: QRCode.CorrectLevel.H,
@@ -341,14 +445,9 @@
             );
           }
 
-          // 4. Perbarui status tombol
           updateNavButtons();
         }
 
-        /**
-         * Mengubah currentIndex dan memanggil renderCard.
-         * @param {'prev' | 'next'} direction
-         */
         function navigateSlider(direction) {
           const totalCards = resiNumbers.length;
           if (totalCards <= 1) return;
@@ -361,10 +460,18 @@
             newIndex = Math.max(currentIndex - 1, 0);
           }
 
-          // Hanya render ulang jika index berubah
           if (newIndex !== currentIndex) {
             currentIndex = newIndex;
-            renderCard(currentIndex);
+            // Gunakan animasi transisi ringan saat mengganti card
+            $("#dynamic-card")
+              .removeClass("scale-100")
+              .addClass("scale-95 opacity-50");
+            setTimeout(() => {
+              renderCard(currentIndex);
+              $("#dynamic-card")
+                .removeClass("scale-95 opacity-50")
+                .addClass("scale-100");
+            }, 150); // Delay untuk efek transisi
           }
         }
 
@@ -372,56 +479,83 @@
          * Function utama untuk memproses input dan memulai rendering.
          */
         function generateQRCodes() {
-          // 1. Get and clean the input
           const rawInput = $input.val().trim();
 
-          // 2. Proses resi numbers
+          // Batasi maksimal 1000 resi
           resiNumbers = rawInput
-            .split(/[\n,]+/)
-            .map((resi) => resi.trim())
+            .split(/[\n,;]+/) // Mengizinkan baris baru, koma, atau titik koma
+            .map((resi) => resi.trim().toUpperCase()) // Bersihkan dan ubah ke huruf besar
             .filter((resi) => resi.length > 0)
-            .slice(0, 1000); // Limit to 1000 for performance
-
-          $wrapper.empty(); // Hapus konten sebelumnya
+            .slice(0, 1000);
 
           if (resiNumbers.length === 0) {
-            showMessage(
-              "Mohon masukkan setidaknya satu nomor resi yang valid.",
-              true
+            // Tampilkan modal error ketika resi kosong
+            showModalError(
+              "Mohon masukkan setidaknya satu nomor resi yang valid."
             );
-            // Sembunyikan seluruh bagian hasil QR Code jika terjadi error
-            $outputSection.addClass("hidden");
-            updateNavButtons(); // Pastikan tombol navigasi juga disembunyikan
+
+            // Revert title to instruction
+            updateOutputTitle(false);
+            // Jika tidak ada resi, kembalikan ke tampilan default
+            if ($wrapper.find("#default-instruction-card").length === 0) {
+              $wrapper.empty().append($defaultCard);
+            }
+            updateNavButtons();
             return;
           }
 
-          // 3. Hanya tampilkan bagian output jika input valid
-          $outputSection.removeClass("hidden");
-          showMessage("", false); // Hapus pesan error sebelumnya
+          // Pastikan modal error tersembunyi jika ada input
+          hideModalError();
 
-          // 4. Inisialisasi dan render kartu pertama
+          // Update title to result
+          updateOutputTitle(true);
+
           currentIndex = 0;
           renderCard(currentIndex);
         }
 
-        // Event listener for the button click
+        // Event listener for the button click (generator)
         $generateBtn.on("click", generateQRCodes);
 
         // Event listeners for navigation
         $prevBtn.on("click", () => navigateSlider("prev"));
         $nextBtn.on("click", () => navigateSlider("next"));
 
-        // Optional: Allow pressing Enter in the textarea to trigger generation
+        // Event listener for keyboard navigation (arrows)
+        $(document).on("keydown", function (e) {
+          // Hanya navigasi jika input tidak sedang fokus dan modal tidak aktif
+          if (
+            resiNumbers.length > 1 &&
+            !$input.is(":focus") &&
+            $errorModal.hasClass("hidden")
+          ) {
+            if (e.key === "ArrowRight") {
+              e.preventDefault(); // Mencegah scrolling
+              navigateSlider("next");
+            } else if (e.key === "ArrowLeft") {
+              e.preventDefault(); // Mencegah scrolling
+              navigateSlider("prev");
+            }
+          }
+          // Menutup modal dengan tombol ESC
+          if (e.key === "Escape" && !$errorModal.hasClass("hidden")) {
+            hideModalError();
+          }
+        });
+
+        // Event listener untuk Enter di textarea (hanya memicu generate, bukan baris baru)
         $input.on("keypress", function (e) {
           if (e.which === 13 && !e.shiftKey) {
-            // 13 is Enter, check shiftKey to allow newlines
             e.preventDefault();
             generateQRCodes();
           }
         });
 
-        // Initial setup on load to hide buttons
+        // Initial setup on load to ensure navigation buttons are hidden until needed
         updateNavButtons();
+
+        // Set initial title on load (INI PENTING)
+        updateOutputTitle(false);
       });
     </script>
   </body>
