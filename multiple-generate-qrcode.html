@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Resi Generator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Load QR Code Generator Library (DIUBAH ke qrcodejs untuk konstruktor yang stabil di browser) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+      /* Custom styles for the responsive single-card slider effect (Global) */
+      #qrcode-container {
+        /* Menggunakan Flexbox untuk slider di semua ukuran layar */
+        display: flex;
+        overflow-x: scroll;
+        /* Memastikan snapping ke tengah setiap kartu saat digulir */
+        scroll-snap-type: x mandatory;
+        padding: 0 5%; /* Padding horizontal agar kartu berikutnya mengintip */
+        padding-bottom: 1rem; /* Space for scrollbar/shadow */
+        -webkit-overflow-scrolling: touch; /* Smoother scrolling on iOS */
+
+        /* Menyembunyikan scrollbar agar tampilan lebih bersih */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+        margin-left: -5%; /* Mengimbangi padding container agar konten terlihat penuh */
+        margin-right: -5%;
+        width: 110%; /* Memperluas container untuk menampung padding */
+      }
+
+      #qrcode-container::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+      }
+
+      .qrcode-card {
+        /* Mengambil 90% lebar untuk menampilkan satu kartu terpusat */
+        min-width: 90%;
+        margin-right: 2.5%; /* Margin antara kartu (5% total per card) */
+        margin-left: 2.5%;
+
+        /* Snap ke tengah viewport */
+        scroll-snap-align: center;
+        flex-shrink: 0; /* Mencegah kartu menyusut */
+        box-sizing: border-box; /* Memasukkan padding dan border dalam lebar total */
+      }
+
+      /* Menghapus semua media query layout grid */
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen font-sans">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+      <header class="text-center mb-10">
+        <h1 class="text-4xl font-extrabold text-indigo-700">
+          QR Code Resi Generator
+        </h1>
+        <p class="text-lg text-gray-500 mt-2">
+          Masukkan beberapa nomor resi untuk membuat Kode QR secara instan.
+        </p>
+      </header>
+
+      <!-- Input Section -->
+      <div
+        class="bg-white p-6 md:p-8 rounded-xl shadow-2xl mb-10 max-w-2xl mx-auto"
+      >
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Input Resi</h2>
+        <textarea
+          id="resi-input"
+          rows="6"
+          class="w-full p-4 border-2 border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+          placeholder="Masukkan nomor resi, pisahkan dengan baris baru (Enter) atau koma.&#10;Contoh:&#10;JKT123456789&#10;SBY987654321&#10;BDG112233445"
+        ></textarea>
+
+        <button
+          id="generate-btn"
+          class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50"
+        >
+          Generate QR Code
+        </button>
+
+        <div
+          id="error-message"
+          class="mt-4 text-red-500 font-medium hidden"
+        ></div>
+      </div>
+
+      <!-- Output Section (QR Code Container) -->
+      <!-- Bagian ini disembunyikan secara default menggunakan class 'hidden' -->
+      <div
+        id="output-section"
+        class="mt-10 hidden p-6 md:p-8 rounded-xl shadow-2xl mb-10 max-w-2xl mx-auto"
+      >
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">Hasil QR Code</h2>
+
+        <!-- Information message for slider (Dihapus sm:hidden karena slider sekarang universal) -->
+        <div
+          id="info-slider"
+          class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg mb-6"
+          role="alert"
+        >
+          <p class="font-bold">Mode Slider Aktif</p>
+          <p>Geser ke kiri dan kanan untuk melihat semua kode QR.</p>
+        </div>
+
+        <!-- The container for the QR code cards -->
+        <div id="qrcode-container">
+          <!-- QR Code cards will be injected here by JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        const $input = $("#resi-input");
+        const $generateBtn = $("#generate-btn");
+        const $container = $("#qrcode-container");
+        const $errorMsg = $("#error-message");
+        // Ambil referensi ke seluruh bagian output
+        const $outputSection = $("#output-section");
+
+        /**
+         * Function to display a non-alert message.
+         * @param {string} message The message to display.
+         * @param {boolean} isError If true, displays as an error. Otherwise, hides the error box.
+         */
+        function showMessage(message, isError) {
+          if (isError) {
+            $errorMsg.text(message).removeClass("hidden");
+          } else {
+            $errorMsg.addClass("hidden").text("");
+          }
+        }
+
+        /**
+         * Function to generate and display QR codes from the input.
+         */
+        function generateQRCodes() {
+          // 1. Get and clean the input
+          const rawInput = $input.val().trim();
+
+          // Tampilkan bagian output segera setelah tombol diklik
+          $outputSection.removeClass("hidden");
+
+          if (rawInput === "") {
+            showMessage("Mohon masukkan setidaknya satu nomor resi.", true);
+            // Tampilkan placeholder jika input kosong
+            $container.html(
+              '<div class="qrcode-card bg-white p-6 rounded-xl shadow-md border border-gray-200 text-center flex flex-col items-center justify-center h-64"><p class="text-gray-500 italic">Masukkan nomor resi terlebih dahulu.</p></div>'
+            );
+            return;
+          }
+          showMessage("", false); // Clear error message
+
+          // Split input by newline or comma, filter out empty strings
+          const resiNumbers = rawInput
+            .split(/[\n,]+/)
+            .map((resi) => resi.trim())
+            .filter((resi) => resi.length > 0)
+            .slice(0, 1000); // Limit to 20 for performance
+
+          if (resiNumbers.length === 0) {
+            showMessage(
+              "Input yang dimasukkan tidak valid. Pastikan nomor resi dipisahkan dengan benar.",
+              true
+            );
+            $container.html(
+              '<div class="qrcode-card bg-white p-6 rounded-xl shadow-md border border-gray-200 text-center flex flex-col items-center justify-center h-64"><p class="text-gray-500 italic">Masukkan nomor resi terlebih dahulu.</p></div>'
+            );
+            return;
+          }
+
+          // 2. Clear previous results
+          $container.empty();
+
+          // 3. Generate QR codes for each resi
+          resiNumbers.forEach((resi, index) => {
+            const cardId = `card-${index}`;
+            const qrcodeId = `qrcode-${index}`;
+
+            // a. Create the card structure (Modern Card Design)
+            const $card = $(`
+                        <div id="${cardId}" class="qrcode-card bg-white p-6 rounded-xl shadow-xl transition duration-300 hover:shadow-2xl">
+                            <h3 class="text-lg font-bold text-indigo-600 mb-4 truncate" title="${resi}">
+                                <svg class="w-5 h-5 inline mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10h16V7a2 2 0 00-2-2H6a2 2 0 00-2 2zM12 17v-4m-4 4h8m0 0h2a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2h2"></path></svg>
+                                Resi: ${resi}
+                            </h3>
+                            <div id="${qrcodeId}" class="flex justify-center p-3 bg-gray-50 rounded-lg">
+                                <!-- QR Code Canvas will be inserted here -->
+                            </div>
+                            <p class="text-xs text-gray-400 mt-4 text-center">Data: ${resi}</p>
+                        </div>
+                    `);
+
+            $container.append($card);
+
+            // b. Generate the QR Code using the library
+            try {
+              // The QRCode library needs a native DOM element or its ID
+              new QRCode(document.getElementById(qrcodeId), {
+                text: resi,
+                width: 180,
+                height: 180,
+                colorDark: "#1f2937", // Gray-800
+                colorLight: "#ffffff",
+                // Menggunakan konstanta CorrectLevel.H dari library qrcodejs yang stabil
+                correctLevel: QRCode.CorrectLevel.H,
+              });
+            } catch (e) {
+              console.error("Error generating QR code for resi:", resi, e);
+              $(`#${qrcodeId}`).html(
+                '<p class="text-red-500">Gagal membuat QR Code.</p>'
+              );
+            }
+          });
+
+          // Scroll the container to the start (important for slider)
+          $container.scrollLeft(0);
+        }
+
+        // Event listener for the button click
+        $generateBtn.on("click", generateQRCodes);
+
+        // Optional: Allow pressing Enter in the textarea to trigger generation
+        $input.on("keypress", function (e) {
+          if (e.which === 13 && !e.shiftKey) {
+            // 13 is Enter, check shiftKey to allow newlines
+            e.preventDefault();
+            generateQRCodes();
+          }
+        });
+
+        // Hapus panggilan awal agar bagian output tersembunyi saat dimuat
+        // generateQRCodes();
+      });
+    </script>
+  </body>
+</html>
