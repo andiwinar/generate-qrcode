@@ -605,12 +605,12 @@
         });
 
         // Event listener untuk Enter di textarea (hanya memicu generate, bukan baris baru)
-        $input.on("keypress", function (e) {
-          if (e.which === 13 && !e.shiftKey) {
-            e.preventDefault();
-            generateQRCodes();
-          }
-        });
+        // $input.on("keypress", function (e) {
+        //   if (e.which === 13 && !e.shiftKey) {
+        //     e.preventDefault();
+        //     generateQRCodes();
+        //   }
+        // });
 
         // Initial setup on load to ensure navigation buttons are hidden until needed
         updateNavButtons();
