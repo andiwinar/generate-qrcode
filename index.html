@@ -545,7 +545,7 @@
           // Batasi maksimal 1000 resi
           resiNumbers = rawInput
             .split(/[\n,;]+/) // Mengizinkan baris baru, koma, atau titik koma
-            .map((resi) => resi.trim().toUpperCase()) // Bersihkan dan ubah ke huruf besar
+            .map((resi) => resi.trim()) // Bersihkan
             .filter((resi) => resi.length > 0)
             .slice(0, 1000);
 
