@@ -322,29 +322,56 @@
     <!-- END: CUSTOM ERROR MODAL (Popup) -->
 
     <script>
+      // --- START IMPROVED SECURITY FEATURES ---
+
       // Cek apakah hostname mengandung 'github.io'
       if (document.location.hostname.includes("github.io")) {
         console.log(
-          "GitHub Pages detected. Client-side security features are active."
-        ); // 1. Menonaktifkan Klik Kanan (Context Menu)
+          "GitHub Pages detected. Enhanced client-side security features are active."
+        );
+
+        // 1. Menonaktifkan Klik Kanan (Context Menu)
         document.addEventListener("contextmenu", function (e) {
           e.preventDefault();
-        }); // 2. Menonaktifkan Shortcut Keyboard untuk Developer Tools/View Source
+          // Opsional: Anda dapat menampilkan modal error/pesan khusus di sini jika mau
+          // showModalError("Akses klik kanan dibatasi.");
+        });
 
+        // 2. Menonaktifkan Shortcut Keyboard untuk Developer Tools, View Source, dan Save Page
         document.addEventListener("keydown", function (e) {
-          // Cek untuk F12 key
+          const key = e.key.toUpperCase();
+          // Cek untuk CtrlKey atau MetaKey (Command key di Mac)
+          const ctrlOrCmd = e.ctrlKey || e.metaKey;
+          const shift = e.shiftKey;
+
+          // F12 key (membuka DevTools)
           if (e.key === "F12") {
             e.preventDefault();
-          } // Cek untuk Ctrl/Cmd + Shift + I/J/C/U
+            return;
+          }
 
-          if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
-            // I: Inspect Element (Chrome)
-            // J: Console (Chrome)
-            // C: Styles (Chrome)
-            // U: View Source
-            const blockedKeys = ["I", "J", "C", "U"];
-            if (blockedKeys.includes(e.key.toUpperCase())) {
+          if (ctrlOrCmd) {
+            // Ctrl/Cmd + U (View Source)
+            if (key === "U") {
               e.preventDefault();
+              return;
+            }
+
+            // Ctrl/Cmd + S (Save Page)
+            if (key === "S") {
+              e.preventDefault();
+              return;
+            }
+
+            // Ctrl/Cmd + Shift shortcuts (Inspect Element, Console, etc.)
+            if (shift) {
+              // I, J, C (Chrome DevTools)
+              // K, E (Firefox DevTools/Network)
+              const blockedShiftKeys = ["I", "J", "C", "K", "E"];
+              if (blockedShiftKeys.includes(key)) {
+                e.preventDefault();
+                return;
+              }
             }
           }
         });
@@ -352,7 +379,8 @@
         console.log(
           "Not running on GitHub Pages. Security features are inactive."
         );
-      } // --- End Security Features ---
+      }
+      // --- END IMPROVED SECURITY FEATURES ---
 
       $(document).ready(function () {
         // --- Variabel Global dan UI Cache ---
