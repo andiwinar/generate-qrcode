@@ -148,6 +148,29 @@
             Generate QR Code
           </button>
 
+          <!-- TOMBOL DOWNLOAD SEMUA RESI -->
+          <button
+            id="download-all-btn"
+            class="mt-3 w-full flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 ease-in-out hidden transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-50"
+          >
+            <!-- Download Icon -->
+            <svg
+              class="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              ></path>
+            </svg>
+            Unduh Resi (.csv)
+          </button>
+
           <!-- PESAN ERROR INLINE DIHILANGKAN, DIGANTI MODAL -->
         </div>
 
@@ -387,6 +410,7 @@
         // --- Variabel Global dan UI Cache ---
         const $input = $("#resi-input");
         const $generateBtn = $("#generate-btn");
+        const $downloadAllBtn = $("#download-all-btn");
         const $wrapper = $("#single-card-wrapper");
         const $outputTitle = $("#output-title-h2");
         const $prevBtn = $("#prev-btn");
@@ -456,6 +480,89 @@
 
           $prevBtn.prop("disabled", currentIndex === 0);
           $nextBtn.prop("disabled", currentIndex === totalCards - 1);
+        }
+
+        /**
+         * Helper untuk membuat nama file dengan format {tahun}-{bulan}-{hari}-{jumlah_resi?}-{waktu}.csv
+         */
+        function createFilename(count = null) {
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const day = String(now.getDate()).padStart(2, "0");
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+          const seconds = String(now.getSeconds()).padStart(2, "0");
+
+          const datePart = `${year}-${month}-${day}`;
+          const timePart = `${hours}${minutes}${seconds}`;
+
+          // Jika count ada, gunakan format: {tahun}-{bulan}-{hari}-{jumlah_resi}-{waktu}.csv
+          if (count !== null) {
+            return `${datePart}-${count}-${timePart}.csv`;
+          }
+          return `${datePart}-${timePart}.csv`;
+        }
+
+        // FUNGSI downloadResiData (DOWNLOAD TUNGGAL) DIHAPUS
+
+        /**
+         * FUNGSI: Mengunduh SEMUA data resi dalam satu file CSV.
+         * FORMAT ISI CSV: No.,Resi \n 1,{resi1} \n 2,{resi2} ...
+         */
+        function downloadAllResiCSV(resiArray) {
+          if (resiArray.length === 0) {
+            showModalError("Tidak ada resi yang dapat diunduh.");
+            return;
+          }
+
+          try {
+            const header = "No.,Resi";
+            const csvRows = [header];
+
+            resiArray.forEach((resi, index) => {
+              // 1. Sanitization and Quoting (CSV Standard)
+              let processedResi = resi.replace(/"/g, '""');
+              // Tambahkan petik dua jika mengandung koma, baris baru, atau petik dua
+              if (
+                processedResi.includes(",") ||
+                processedResi.includes("\n") ||
+                processedResi.includes('"')
+              ) {
+                processedResi = `"${processedResi}"`;
+              }
+
+              // 2. Format: Index + 1, Resi
+              csvRows.push(`${index + 1},${processedResi}`);
+            });
+
+            const csvContent = csvRows.join("\n");
+            const blob = new Blob([csvContent], {
+              type: "text/csv;charset=utf-8;",
+            });
+
+            // Define File Name (Menggunakan jumlah resi)
+            const fileName = createFilename(resiArray.length);
+
+            // Trigger Download
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            console.log(
+              `File CSV kolektif (${resiArray.length} resi) berhasil diunduh: ${fileName}`
+            );
+          } catch (e) {
+            console.error("Bulk download failed:", e);
+            showModalError(
+              "Gagal saat mencoba mengunduh semua file. Periksa konsol untuk detail."
+            );
+          }
         }
 
         function renderCard(index) {
@@ -555,6 +662,9 @@
               "Mohon masukkan setidaknya satu nomor resi yang valid."
             );
 
+            // Sembunyikan tombol download all
+            $downloadAllBtn.addClass("hidden");
+
             // Revert title to instruction
             updateOutputTitle(false);
             // Jika tidak ada resi, kembalikan ke tampilan default
@@ -568,6 +678,9 @@
           // Pastikan modal error tersembunyi jika ada input
           hideModalError();
 
+          // Tampilkan tombol download all setelah generate berhasil
+          $downloadAllBtn.removeClass("hidden");
+
           // Update title to result
           updateOutputTitle(true);
 
@@ -577,6 +690,9 @@
 
         // Event listener for the button click (generator)
         $generateBtn.on("click", generateQRCodes);
+
+        // Event listener untuk unduh semua resi
+        $downloadAllBtn.on("click", () => downloadAllResiCSV(resiNumbers));
 
         // Event listeners for navigation
         $prevBtn.on("click", () => navigateSlider("prev"));
