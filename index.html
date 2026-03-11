@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
@@ -10,6 +10,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Load QR Code Generator Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Load Datasether-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Load Firebase/Firestore for environment compatibility (Minimal setup) -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -55,7 +57,7 @@
         } catch (error) {
           console.error(
             "Error during Firebase initialization or authentication:",
-            error
+            error,
           );
         }
       }
@@ -141,12 +143,41 @@
           ></textarea>
 
           <!-- BUTTON WARNA ORANGE SHOPEE -->
-          <button
-            id="generate-btn"
-            class="mt-4 w-full bg-orange-700 hover:bg-orange-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-orange-500 focus:ring-opacity-50"
-          >
-            Generate QR Code
-          </button>
+          <div class="mt-4 flex space-x-3">
+            <label
+              for="excel-upload"
+              class="w-1/2 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-2 rounded-xl shadow-lg cursor-pointer transition duration-300 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 text-sm sm:text-base"
+            >
+              <svg
+                class="w-5 h-5 mr-1 sm:mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                ></path>
+              </svg>
+              Upload Excel
+            </label>
+            <input
+              type="file"
+              id="excel-upload"
+              accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+              class="hidden"
+            />
+
+            <button
+              id="generate-btn"
+              class="w-1/2 bg-orange-700 hover:bg-orange-800 text-white font-bold py-3 px-2 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-orange-500 focus:ring-opacity-50 text-sm sm:text-base"
+            >
+              Generate QR
+            </button>
+          </div>
 
           <!-- TOMBOL DOWNLOAD SEMUA RESI -->
           <button
@@ -351,7 +382,7 @@
       // Cek apakah hostname mengandung 'github.io'
       if (document.location.hostname.includes("github.io")) {
         console.log(
-          "GitHub Pages detected. Enhanced client-side security features are active."
+          "GitHub Pages detected. Enhanced client-side security features are active.",
         );
 
         // 1. Menonaktifkan Klik Kanan (Context Menu)
@@ -401,7 +432,7 @@
         });
       } else {
         console.log(
-          "Not running on GitHub Pages. Security features are inactive."
+          "Not running on GitHub Pages. Security features are inactive.",
         );
       }
       // --- END IMPROVED SECURITY FEATURES ---
@@ -555,12 +586,12 @@
             URL.revokeObjectURL(url);
 
             console.log(
-              `File CSV kolektif (${resiArray.length} resi) berhasil diunduh: ${fileName}`
+              `File CSV kolektif (${resiArray.length} resi) berhasil diunduh: ${fileName}`,
             );
           } catch (e) {
             console.error("Bulk download failed:", e);
             showModalError(
-              "Gagal saat mencoba mengunduh semua file. Periksa konsol untuk detail."
+              "Gagal saat mencoba mengunduh semua file. Periksa konsol untuk detail.",
             );
           }
         }
@@ -609,7 +640,7 @@
           } catch (e) {
             console.error("Error generating QR code:", resi, e);
             $(`#${qrcodeId}`).html(
-              '<p class="text-red-500">Gagal membuat QR Code.</p>'
+              '<p class="text-red-500">Gagal membuat QR Code.</p>',
             );
           }
 
@@ -659,7 +690,7 @@
           if (resiNumbers.length === 0) {
             // Tampilkan modal error ketika resi kosong
             showModalError(
-              "Mohon masukkan setidaknya satu nomor resi yang valid."
+              "Mohon masukkan setidaknya satu nomor resi yang valid.",
             );
 
             // Sembunyikan tombol download all
@@ -679,7 +710,7 @@
           hideModalError();
 
           // Tampilkan tombol download all setelah generate berhasil
-          $downloadAllBtn.removeClass("hidden");
+          $downloadAllBtn.addClass("hidden");
 
           // Update title to result
           updateOutputTitle(true);
@@ -719,6 +750,77 @@
             hideModalError();
           }
         });
+
+        // --- START FITUR UPLOAD EXCEL / CSV ---
+        $("#excel-upload").on("change", function (e) {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: "array" });
+              const firstSheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[firstSheetName];
+
+              // Konversi sheet ke array of arrays (header: 1)
+              const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+              let extractedIds = [];
+
+              // Mulai dari index 1 untuk melompati baris judul (header)
+              for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+
+                // Pastikan baris tidak kosong
+                if (row && row.length > 0) {
+                  // Ambil kolom pertama (index 0) dan ubah jadi string
+                  let firstData = String(row[0]).trim();
+
+                  // Jika data terdeteksi seperti "SPX0098776545,nanda tiktok, jakarta"
+                  // yang tergabung dalam satu sel, kita pisahkan lagi dengan koma
+                  if (firstData.includes(",")) {
+                    firstData = firstData.split(",")[0].trim();
+                  }
+
+                  // Bersihkan tanda kutip (") jika ada
+                  firstData = firstData.replace(/"/g, "");
+
+                  if (firstData) {
+                    extractedIds.push(firstData);
+                  }
+                }
+              }
+
+              if (extractedIds.length > 0) {
+                const currentVal = $input.val().trim();
+                // Gabungkan dengan data yang sudah ada di textarea (jika ada)
+                const newVal = currentVal
+                  ? currentVal + "\n" + extractedIds.join("\n")
+                  : extractedIds.join("\n");
+
+                $input.val(newVal);
+              } else {
+                showModalError(
+                  "Tidak ada data resi valid yang ditemukan di file.",
+                );
+              }
+            } catch (error) {
+              console.error("Error reading file:", error);
+              showModalError(
+                "Gagal membaca file. Pastikan formatnya .csv atau .xlsx yang benar.",
+              );
+            }
+          };
+
+          reader.readAsArrayBuffer(file);
+
+          // Reset input value agar file yang sama bisa diupload ulang jika perlu
+          $(this).val("");
+        });
+        // --- END FITUR UPLOAD EXCEL / CSV ---
 
         // Event listener untuk Enter di textarea (hanya memicu generate, bukan baris baru)
         // $input.on("keypress", function (e) {
